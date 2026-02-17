@@ -94,8 +94,18 @@ def app():
             pack_img = back_camera_input("ถ่ายรูปเพิ่ม", key=f"pack_cam_fin_{st.session_state.cam_counter}")
             if pack_img:
                 img_pil = Image.open(pack_img)
-                buf = io.BytesIO(); img_pil.save(buf, format='JPEG', quality=90)
-                st.session_state.photo_gallery.append(buf.getvalue()); st.session_state.cam_counter += 1; utils.play_sound('scan'); st.rerun()
+                
+                # --- [FIXED] เพิ่ม 2 บรรทัดนี้เพื่อแปลงโหมดสี ---
+                if img_pil.mode in ("RGBA", "P"): 
+                    img_pil = img_pil.convert("RGB")
+                # ------------------------------------------
+
+                buf = io.BytesIO()
+                img_pil.save(buf, format='JPEG', quality=90)
+                st.session_state.photo_gallery.append(buf.getvalue())
+                st.session_state.cam_counter += 1
+                utils.play_sound('scan')
+                st.rerun()
         
         col1, col2 = st.columns(2)
         with col1: 
