@@ -16,9 +16,9 @@ st.set_page_config(page_title="Smart Picking System", page_icon="📦")
 st.markdown("""
     <style>
         /* ปรับขนาด Font หัวข้อ */
-        h1 { font-size: 30px !important; } 
-        h2 { font-size: 25px !important; } 
-        h3 { font-size: 20px !important; } 
+        h1 { font-size: 25px !important; } 
+        h2 { font-size: 20px !important; } 
+        h3 { font-size: 18px !important; } 
         h4 { font-size: 15px !important; } 
         
         /* ปรับแต่งกล้อง */
