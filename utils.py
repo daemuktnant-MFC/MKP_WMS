@@ -129,7 +129,8 @@ def get_target_folder_structure(service, order_id, main_parent_id):
     meta_order = {'name': order_folder_name, 'parents': [date_id], 'mimeType': 'application/vnd.google-apps.folder'}
     order_folder = service.files().create(body=meta_order, fields='id').execute(); return order_folder.get('id')
 
-    def get_rider_daily_folder(service, main_parent_id):
+# --- ส่วนที่แก้ไข: ขยับมาให้ชิดซ้ายสุด (ไม่ซ้อนอยู่ในฟังก์ชันอื่น) ---
+def get_rider_daily_folder(service, main_parent_id):
     now = datetime.utcnow() + timedelta(hours=7)
     date_str = now.strftime("%d-%m-%Y"); year_str = now.strftime("%Y"); month_str = now.strftime("%m")
     folder_name = f"Rider_{date_str}"
