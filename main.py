@@ -71,7 +71,7 @@ if not st.session_state.current_user_name:
     else:
         u = st.session_state.temp_user
         st.info(f"👤 {u['name']} ({u['role']})"); pw = st.text_input("Password", type="password")
-        if st.button("Login"):
+        if st.button("✅ Login"):
             if pw == u['pass']:
                 st.session_state.current_user_name = u['name']; st.session_state.current_user_id = u['id']; st.session_state.current_user_role = u['role']
                 del st.session_state.temp_user; st.toast("Welcome!"); time.sleep(1); st.rerun()
