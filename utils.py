@@ -128,3 +128,20 @@ def get_target_folder_structure(service, order_id, main_parent_id):
     order_folder_name = f"{order_id}_{now.strftime('%H-%M')}"
     meta_order = {'name': order_folder_name, 'parents': [date_id], 'mimeType': 'application/vnd.google-apps.folder'}
     order_folder = service.files().create(body=meta_order, fields='id').execute(); return order_folder.get('id')
+
+    def get_rider_daily_folder(service, main_parent_id):
+    now = datetime.utcnow() + timedelta(hours=7)
+    date_str = now.strftime("%d-%m-%Y"); year_str = now.strftime("%Y"); month_str = now.strftime("%m")
+    folder_name = f"Rider_{date_str}"
+
+    def _get_or_create(parent_id, name):
+        q = f"name = '{name}' and '{parent_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+        res = service.files().list(q=q, fields="files(id)").execute(); files = res.get('files', [])
+        if files: return files[0]['id']
+        meta = {'name': name, 'parents': [parent_id], 'mimeType': 'application/vnd.google-apps.folder'}
+        folder = service.files().create(body=meta, fields='id').execute(); return folder.get('id')
+    
+    year_id = _get_or_create(main_parent_id, year_str)
+    month_id = _get_or_create(year_id, month_str)
+    final_id = _get_or_create(month_id, folder_name)
+    return final_id, folder_name
