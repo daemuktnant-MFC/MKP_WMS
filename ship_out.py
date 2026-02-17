@@ -6,6 +6,7 @@ import io
 import time
 from streamlit_back_camera_input import back_camera_input
 import utils 
+import gspread # ต้อง import gspread ด้วยเพื่อให้ helper ทำงานได้
 
 # Helper: Load History
 def load_rider_history():
@@ -52,6 +53,7 @@ def app():
             st.session_state.rider_scanned_orders.append({'id': curr})
             utils.play_sound('scan'); st.success(f"✅ เพิ่ม {curr}"); st.session_state.rider_input_reset_key += 1; st.session_state.cam_counter += 1; st.rerun()
 
+    # --- ส่วนแสดงรายการและถ่ายรูป (ทำงานเมื่อมี Order ในตะกร้า) ---
     if st.session_state.rider_scanned_orders:
         st.write(f"📋 สแกนแล้ว ({len(st.session_state.rider_scanned_orders)})")
         for i, o in enumerate(st.session_state.rider_scanned_orders):
@@ -60,17 +62,20 @@ def app():
             if c2.button("ลบ", key=f"rdel_{i}"): st.session_state.rider_scanned_orders.pop(i); st.rerun()
         
         st.markdown("#### 2. ถ่ายรูปปิดตู้")
+        
+        # แสดงรูปที่ถ่ายไปแล้ว
         if st.session_state.rider_photo_gallery:
             cols = st.columns(3)
             for i, img in enumerate(st.session_state.rider_photo_gallery):
                 with cols[i]: st.image(img, use_column_width=True)
         
-       if len(st.session_state.rider_photo_gallery) < 3:
+        # กล้องถ่ายรูป (แสดงเมื่อรูปยังไม่ครบ 3)
+        if len(st.session_state.rider_photo_gallery) < 3:
             r_img = back_camera_input("ถ่ายรูป", key=f"r_cam_act_{st.session_state.cam_counter}")
             if r_img:
                 img = Image.open(r_img)
                 
-                # --- [FIXED] เพิ่มตรงนี้เหมือนกัน ---
+                # --- แปลงโหมดสี (แก้ Error JPEG) ---
                 if img.mode in ("RGBA", "P"): 
                     img = img.convert("RGB")
                 # -------------------------------
@@ -81,6 +86,7 @@ def app():
                 st.session_state.cam_counter += 1
                 st.rerun()
         
+        # ปุ่มยืนยัน (แสดงเมื่อมีรูปอย่างน้อย 1 รูป)
         if len(st.session_state.rider_photo_gallery) > 0:
             if st.button("🚀 ยืนยันบันทึก", type="primary", use_container_width=True):
                 with st.spinner("🚀 Saving..."):
@@ -88,10 +94,13 @@ def app():
                     fid, fname = utils.get_rider_daily_folder(srv, utils.MAIN_FOLDER_ID)
                     ts = utils.get_thai_ts_filename(); lp = rider_lp if rider_lp else "NoPlate"
                     up_ids = []
+                    
+                    # Upload รูป
                     for i, img in enumerate(st.session_state.rider_photo_gallery):
                         fn = f"{lp}_{ts}_{i+1}.jpg"
                         up_ids.append(utils.upload_photo(srv, img, fn, fid))
                     
+                    # Save Logs
                     for o in st.session_state.rider_scanned_orders:
                         save_rider_log(st.session_state.current_user_name, o['id'], up_ids, fname, lp)
                     
