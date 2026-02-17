@@ -76,7 +76,7 @@ if not st.session_state.current_user_name:
     
     # ส่วนแสดง Logo หน้า Login (Optional)
    c_logo, c_title = st.columns([1, 4]) # 
-     with c_logo:
+        with c_logo:
         # [แก้] ชี้ไปที่ folder picture
         if os.path.exists("picture/logo.jpg"): 
             st.image("picture/logo.jpg", width=80)
