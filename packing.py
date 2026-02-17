@@ -5,7 +5,12 @@ from pyzbar.pyzbar import decode
 import io 
 import time
 from streamlit_back_camera_input import back_camera_input
-import utils  # Import ไฟล์กลาง
+import utils 
+
+# --- [NEW] CALLBACK FUNCTION ---
+# สร้างฟังก์ชันสำหรับเปลี่ยนหน้า เพื่อให้ทำงานทันทีที่กดปุ่ม
+def go_to_pack_phase():
+    st.session_state.picking_phase = 'pack'
 
 def app():
     st.title("📦 ระบบแพ็คสินค้า")
@@ -67,8 +72,12 @@ def app():
                 st.markdown("---")
                 st.markdown(f"### 🛒 แพ็คแล้ว ({len(st.session_state.current_order_items)})")
                 st.dataframe(pd.DataFrame(st.session_state.current_order_items)[['Barcode', 'Product Name']], use_container_width=True)
-                if st.button("✅ ยืนยันครบ (ไปถ่ายรูป)", type="primary", use_container_width=True):
-                    st.session_state.picking_phase = 'pack'; st.rerun()
+                
+                # --- [FIXED] ปุ่มยืนยันใช้ on_click ---
+                st.button("✅ ยืนยันครบ (ไปถ่ายรูป)", 
+                          type="primary", 
+                          use_container_width=True, 
+                          on_click=go_to_pack_phase) # เรียกใช้ฟังก์ชัน Callback แทน
 
     # --- Phase 2: PHOTO & UPLOAD ---
     elif st.session_state.picking_phase == 'pack':
