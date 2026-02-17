@@ -15,8 +15,24 @@ import manage_user
 st.set_page_config(page_title="Smart Picking System", page_icon="📦")
 st.markdown("""
     <style>
-        iframe[title="streamlit_back_camera_input.back_camera_input"] {min-height: 450px !important; height: 150% !important;} 
-        div.stButton>button:disabled{background-color:#ccc;color:#666;}
+        /* ปรับขนาด Font หัวข้อ */
+        h1 { font-size: 30px !important; } 
+        h2 { font-size: 25px !important; } 
+        h3 { font-size: 20px !important; } 
+        h4 { font-size: 15px !important; } 
+        
+        /* ปรับแต่งกล้อง */
+        iframe[title="streamlit_back_camera_input.back_camera_input"] {
+            min-height: 450px !important; 
+            height: 150% !important;
+        } 
+        
+        /* ปรับแต่งปุ่ม Disabled */
+        div.stButton>button:disabled {
+            background-color: #cccccc;
+            color: #666666;
+        }
+        
         /* ปรับให้ปุ่มในหน้า Login อยู่แนวเดียวกับ Input */
         div[data-testid="column"] { align-self: flex-end; }
     </style>
