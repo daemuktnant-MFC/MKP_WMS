@@ -14,18 +14,44 @@ import manage_user
 st.set_page_config(page_title="Smart Picking System", page_icon="📦")
 st.markdown("""<style>iframe[title="streamlit_back_camera_input.back_camera_input"] {min-height: 450px !important; height: 150% !important;} div.stButton>button:disabled{background-color:#ccc;color:#666;}</style>""", unsafe_allow_html=True)
 
-# --- STATE MANAGEMENT ---
-if 'need_reset' not in st.session_state: st.session_state.need_reset = False
-if st.session_state.need_reset:
-    keys = ['order_val', 'prod_val', 'photo_gallery', 'rider_photo_gallery', 'current_order_items', 'expected_items', 'rider_scanned_orders']
-    for k in keys: st.session_state[k] = [] if 'gallery' in k or 'items' in k or 'orders' in k else ""
-    st.session_state.picking_phase = 'scan'; st.session_state.cam_counter = st.session_state.get('cam_counter', 0) + 1
-    st.session_state.need_reset = False
+# --- [FIXED] STATE MANAGEMENT ---
+# 1. ฟังก์ชันสำหรับกำหนดค่าเริ่มต้น (ใช้ทั้งตอนเปิดแอป และตอนกด Reset)
+def init_app_state():
+    defaults = {
+        'picking_phase': 'scan',
+        'order_val': "",
+        'prod_val': "",
+        'photo_gallery': [],
+        'rider_photo_gallery': [],
+        'current_order_items': [],
+        'expected_items': [],
+        'rider_scanned_orders': [],
+        'cam_counter': 0,
+        'current_user_name': "",
+        'current_user_role': "",
+        'rider_input_reset_key': 0,
+        'need_reset': False
+    }
+    
+    for key, val in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = val
 
-# Initialize necessary keys
-for k in ['current_user_name', 'current_user_role', 'rider_input_reset_key']:
-    if k not in st.session_state: st.session_state[k] = "" if 'reset' not in k else 0
-if 'cam_counter' not in st.session_state: st.session_state.cam_counter = 0
+# 2. เรียกใช้งานทันทีเมื่อเริ่มรันโค้ด
+init_app_state()
+
+# 3. Logic สำหรับการ Reset (เมื่อ need_reset = True)
+if st.session_state.need_reset:
+    # รีเซ็ตเฉพาะค่าที่เกี่ยวกับงาน (ไม่รวม User Login)
+    reset_keys = ['order_val', 'prod_val', 'photo_gallery', 'rider_photo_gallery', 
+                  'current_order_items', 'expected_items', 'rider_scanned_orders']
+    for k in reset_keys:
+        st.session_state[k] = [] if 'gallery' in k or 'items' in k or 'orders' in k else ""
+    
+    st.session_state.picking_phase = 'scan'
+    st.session_state.cam_counter += 1
+    st.session_state.need_reset = False
+    st.rerun() # สั่งรันใหม่เพื่อให้ค่าอัปเดตทันที
 
 # --- LOGIN FLOW ---
 if not st.session_state.current_user_name:
