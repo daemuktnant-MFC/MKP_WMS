@@ -65,11 +65,21 @@ def app():
             for i, img in enumerate(st.session_state.rider_photo_gallery):
                 with cols[i]: st.image(img, use_column_width=True)
         
-        if len(st.session_state.rider_photo_gallery) < 3:
+       if len(st.session_state.rider_photo_gallery) < 3:
             r_img = back_camera_input("ถ่ายรูป", key=f"r_cam_act_{st.session_state.cam_counter}")
             if r_img:
-                img = Image.open(r_img); buf = io.BytesIO(); img.save(buf, format='JPEG', quality=90)
-                st.session_state.rider_photo_gallery.append(buf.getvalue()); st.session_state.cam_counter += 1; st.rerun()
+                img = Image.open(r_img)
+                
+                # --- [FIXED] เพิ่มตรงนี้เหมือนกัน ---
+                if img.mode in ("RGBA", "P"): 
+                    img = img.convert("RGB")
+                # -------------------------------
+
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=90)
+                st.session_state.rider_photo_gallery.append(buf.getvalue())
+                st.session_state.cam_counter += 1
+                st.rerun()
         
         if len(st.session_state.rider_photo_gallery) > 0:
             if st.button("🚀 ยืนยันบันทึก", type="primary", use_container_width=True):
