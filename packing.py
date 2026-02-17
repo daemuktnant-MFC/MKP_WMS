@@ -1,0 +1,109 @@
+import streamlit as st
+import pandas as pd
+from PIL import Image
+from pyzbar.pyzbar import decode 
+import io 
+import time
+from streamlit_back_camera_input import back_camera_input
+import utils  # Import ไฟล์กลาง
+
+def app():
+    st.title("📦 ระบบแพ็คสินค้า")
+    df_order_data = utils.load_sheet_data(utils.ORDER_DATA_SHEET_NAME, utils.ORDER_CHECK_SHEET_ID)
+
+    # --- Phase 1: SCAN ---
+    if st.session_state.picking_phase == 'scan':
+        st.markdown("#### 1. Scan Tracking")
+        if not st.session_state.order_val:
+            col1, col2 = st.columns([3, 1])
+            manual_order = col1.text_input("พิมพ์ Tracking ID", key="pack_order_man").strip().upper()
+            if manual_order: st.session_state.order_val = manual_order; st.rerun()
+            scan_order = back_camera_input("แตะเพื่อสแกน Tracking", key=f"pack_cam_{st.session_state.cam_counter}")
+            if scan_order:
+                res = decode(Image.open(scan_order))
+                if res: st.session_state.order_val = res[0].data.decode("utf-8").upper(); st.rerun()
+        else:
+            c1, c2 = st.columns([3, 1])
+            with c1: st.success(f"📦 Tracking: **{st.session_state.order_val}**")
+            with c2: 
+                if st.button("เปลี่ยน"): st.session_state.need_reset = True; st.rerun()
+
+        if st.session_state.order_val:
+            if df_order_data.empty: st.error("❌ ไม่พบข้อมูล Order Data")
+            else:
+                if not st.session_state.expected_items:
+                    matches = df_order_data[df_order_data['Tracking'] == st.session_state.order_val]
+                    matches = matches.drop_duplicates(subset=['Barcode'], keep='first')
+                    if matches.empty: utils.play_sound('error'); st.error(f"⛔ ไม่พบ Tracking ในระบบ!"); time.sleep(2); st.session_state.order_val = ""; st.rerun()
+                    else: st.session_state.expected_items = matches.to_dict('records')
+
+            if st.session_state.expected_items:
+                st.info(f"📋 สินค้าต้องแพ็ค ({len(st.session_state.expected_items)}):")
+                st.dataframe(pd.DataFrame(st.session_state.expected_items)[['Barcode', 'Product Name']], use_container_width=True)
+
+                st.markdown("#### 2. Scan สินค้า")
+                if not st.session_state.prod_val:
+                    col1, col2 = st.columns([3, 1])
+                    manual_prod = col1.text_input("พิมพ์ Barcode", key="pack_prod_man").strip()
+                    if manual_prod: st.session_state.prod_val = manual_prod; st.rerun()
+                    scan_prod = back_camera_input("สแกนสินค้า", key=f"prod_cam_{st.session_state.cam_counter}")
+                    if scan_prod:
+                        res_p = decode(Image.open(scan_prod))
+                        if res_p: st.session_state.prod_val = res_p[0].data.decode("utf-8"); st.rerun()
+                else:
+                    scanned = st.session_state.prod_val; found = None
+                    for item in st.session_state.expected_items:
+                        if str(item.get('Barcode', '')).strip() == scanned: found = item; break
+                    if found:
+                        if not any(x['Barcode'] == scanned for x in st.session_state.current_order_items):
+                            st.session_state.current_order_items.append(found)
+                            utils.play_sound('success'); st.toast(f"✅ เพิ่ม {found.get('Product Name')}", icon="🛒")
+                        else: st.toast("⚠️ สแกนแล้ว", icon="ℹ️")
+                        st.session_state.prod_val = ""; st.session_state.cam_counter += 1; st.rerun()
+                    else:
+                        utils.play_sound('error'); st.error("⛔ สินค้าผิด!"); time.sleep(1); st.session_state.prod_val = ""; st.session_state.cam_counter += 1; st.rerun()
+
+            if st.session_state.current_order_items:
+                st.markdown("---")
+                st.markdown(f"### 🛒 แพ็คแล้ว ({len(st.session_state.current_order_items)})")
+                st.dataframe(pd.DataFrame(st.session_state.current_order_items)[['Barcode', 'Product Name']], use_container_width=True)
+                if st.button("✅ ยืนยันครบ (ไปถ่ายรูป)", type="primary", use_container_width=True):
+                    st.session_state.picking_phase = 'pack'; st.rerun()
+
+    # --- Phase 2: PHOTO & UPLOAD ---
+    elif st.session_state.picking_phase == 'pack':
+        st.success(f"📦 Tracking: **{st.session_state.order_val}**")
+        st.markdown("#### 3. 📸 ถ่ายรูปหลักฐาน")
+        
+        if st.session_state.photo_gallery:
+            cols = st.columns(4)
+            for idx, img in enumerate(st.session_state.photo_gallery):
+                with cols[idx % 4]: st.image(img, use_column_width=True)
+                if st.button("ลบ", key=f"del_{idx}"): st.session_state.photo_gallery.pop(idx); st.rerun()
+        
+        if len(st.session_state.photo_gallery) < 5:
+            pack_img = back_camera_input("ถ่ายรูปเพิ่ม", key=f"pack_cam_fin_{st.session_state.cam_counter}")
+            if pack_img:
+                img_pil = Image.open(pack_img)
+                buf = io.BytesIO(); img_pil.save(buf, format='JPEG', quality=90)
+                st.session_state.photo_gallery.append(buf.getvalue()); st.session_state.cam_counter += 1; utils.play_sound('scan'); st.rerun()
+        
+        col1, col2 = st.columns(2)
+        with col1: 
+            if st.button("⬅️ แก้ไข"): st.session_state.picking_phase = 'scan'; st.session_state.photo_gallery = []; st.rerun()
+        with col2:
+            if len(st.session_state.photo_gallery) > 0:
+                if st.button("☁️ Upload", type="primary", use_container_width=True):
+                    with st.spinner("🚀 Uploading..."):
+                        srv = utils.authenticate_drive()
+                        if srv:
+                            fid = utils.get_target_folder_structure(srv, st.session_state.order_val, utils.MAIN_FOLDER_ID)
+                            ts = utils.get_thai_ts_filename(); uploaded_ids = []
+                            for i, img in enumerate(st.session_state.photo_gallery):
+                                fn = f"{st.session_state.order_val}_PACKED_{ts}_{i+1}.jpg"
+                                uploaded_ids.append(utils.upload_photo(srv, img, fn, fid))
+                            
+                            for item in st.session_state.current_order_items:
+                                utils.save_log_to_sheet(st.session_state.current_user_name, st.session_state.order_val, item['Barcode'], item['Product Name'], item.get('Location','-'), '1', st.session_state.current_user_id, uploaded_ids)
+                            
+                            utils.play_sound('success'); st.success("✅ บันทึกสำเร็จ!"); time.sleep(1.5); st.session_state.need_reset = True; st.rerun()
