@@ -61,9 +61,9 @@ if not st.session_state.current_user_name:
     # ส่วนแสดง Logo หน้า Login (Optional)
     c_logo, c_title = st.columns([1, 4])
     with c_logo:
-        if os.path.exists("logo.jpg"): st.image("logo.jpg", width=80)
-    with c_title:
-         st.title("🔐 Login")
+        # [แก้] ชี้ไปที่ folder picture
+        if os.path.exists("picture/logo.jpg"): 
+            st.image("picture/logo.jpg", width=80)
          
     df_users = utils.load_sheet_data(utils.USER_SHEET_NAME, utils.ORDER_CHECK_SHEET_ID)
     
@@ -124,11 +124,11 @@ if not st.session_state.current_user_name:
 else:
     # --- APP NAVIGATION (SIDEBAR) ---
     with st.sidebar:
-        # --- [NEW] LOGO LOTUS ---
-        if os.path.exists("logo.jpg"):
-            st.image("logo.jpg", use_column_width=True)
+        # [แก้] ชี้ไปที่ folder picture
+        if os.path.exists("picture/logo.jpg"):
+            st.image("picture/logo.jpg", use_column_width=True)
         else:
-            st.caption("Upload 'logo.jpg' to see image here")
+            st.caption("No logo found in picture/ folder")
             
         st.divider()
         st.write(f"👤 **{st.session_state.current_user_name}**")
