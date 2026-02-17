@@ -79,7 +79,7 @@ if not st.session_state.current_user_name:
     with c_logo:
         # [แก้] ชี้ไปที่ folder picture
         if os.path.exists("picture/logo.jpg"): 
-            st.image("picture/logo.jpg", width=80)
+            st.image("picture/logo.jpg", width=40)
          
     df_users = utils.load_sheet_data(utils.USER_SHEET_NAME, utils.ORDER_CHECK_SHEET_ID)
     
