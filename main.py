@@ -3,7 +3,7 @@ import time
 from pyzbar.pyzbar import decode
 from PIL import Image
 from streamlit_back_camera_input import back_camera_input
-import os # import เพิ่มเพื่อเช็คไฟล์รูป
+import os 
 
 # นำเข้า Module ที่เราแยกไว้
 import utils
@@ -75,11 +75,13 @@ if st.session_state.need_reset:
 if not st.session_state.current_user_name:
     
     # ส่วนแสดง Logo หน้า Login (Optional)
-   c_logo, c_title = st.columns([1, 4]) # 
-   with c_logo:
+    c_logo, c_title = st.columns([1, 4]) 
+    with c_logo:
         # [แก้] ชี้ไปที่ folder picture
         if os.path.exists("picture/logo.jpg"): 
             st.image("picture/logo.jpg", width=80)
+    with c_title:
+        st.title("🔐 Login")
          
     df_users = utils.load_sheet_data(utils.USER_SHEET_NAME, utils.ORDER_CHECK_SHEET_ID)
     
