@@ -46,7 +46,6 @@ def app():
                 st.dataframe(pd.DataFrame(st.session_state.expected_items)[['Barcode', 'Product Name']], use_container_width=True)
 
                 st.markdown("#### 2. Scan สินค้า")
-                # รับค่าจาก Manual หรือ Camera
                 if not st.session_state.prod_val:
                     col1, col2 = st.columns([3, 1])
                     manual_prod = col1.text_input("พิมพ์ Barcode", key="pack_prod_man").strip()
@@ -57,7 +56,6 @@ def app():
                         res_p = decode(Image.open(scan_prod))
                         if res_p: st.session_state.prod_val = res_p[0].data.decode("utf-8"); st.rerun()
                 
-                # ถ้ามีค่า Barcode เข้ามา (จากช่องพิมพ์ หรือ กล้อง)
                 else:
                     scanned = st.session_state.prod_val; found = None
                     for item in st.session_state.expected_items:
@@ -68,20 +66,17 @@ def app():
                             st.session_state.current_order_items.append(found)
                             utils.play_sound('success')
                             
-                            # --- [จุดที่แก้ไข] เช็คว่าครบหรือยัง? ---
+                            # เช็คว่าครบหรือยัง?
                             if len(st.session_state.current_order_items) >= len(st.session_state.expected_items):
-                                # ถ้าครบแล้ว ไปหน้าถ่ายรูปเลยทันที!
                                 st.toast(f"✅ ครบแล้ว! กำลังไปหน้าถ่ายรูป...", icon="📸")
                                 st.session_state.picking_phase = 'pack'
-                                time.sleep(0.5) # หน่วงนิดนึงให้ user รู้ว่าสแกนติดแล้ว
+                                time.sleep(0.5) 
                                 st.rerun()
                             else:
-                                # ถ้ายังไม่ครบ ให้สแกนต่อ
                                 st.toast(f"✅ เพิ่ม {found.get('Product Name')}", icon="🛒")
                                 st.session_state.prod_val = ""
                                 st.session_state.cam_counter += 1
                                 st.rerun()
-                            # -----------------------------------
                         else: 
                             st.toast("⚠️ สแกนแล้ว", icon="ℹ️")
                             st.session_state.prod_val = ""; st.session_state.cam_counter += 1; st.rerun()
@@ -93,35 +88,30 @@ def app():
                 st.markdown(f"### 🛒 แพ็คแล้ว ({len(st.session_state.current_order_items)}/{len(st.session_state.expected_items)})")
                 st.dataframe(pd.DataFrame(st.session_state.current_order_items)[['Barcode', 'Product Name']], use_container_width=True)
                 
-                # ปุ่มยังเก็บไว้ เผื่อกรณีอยากกดข้ามเอง แต่ปกติจะไม่ค่อยได้ใช้แล้ว
                 if len(st.session_state.current_order_items) < len(st.session_state.expected_items):
                     st.warning("⚠️ ยังสแกนไม่ครบ")
                 else:
                     st.button("✅ ยืนยันครบ (ไปถ่ายรูป)", type="primary", use_container_width=True, on_click=go_to_pack_phase)
 
-    # --- Phase 2: PHOTO & UPLOAD ---
+    # --- Phase 2: PHOTO & UPLOAD (แก้ไขตำแหน่ง) ---
     elif st.session_state.picking_phase == 'pack':
         st.success(f"📦 Tracking: **{st.session_state.order_val}**")
         st.markdown("#### 3. 📸 ถ่ายรูปหลักฐาน")
         
-        if st.session_state.photo_gallery:
-            cols = st.columns(4)
-            for idx, img in enumerate(st.session_state.photo_gallery):
-                with cols[idx % 4]: st.image(img, use_column_width=True)
-                if st.button("ลบ", key=f"del_{idx}"): st.session_state.photo_gallery.pop(idx); st.rerun()
-        
+        # 1. แสดงกล้องถ่ายรูป (ย้ายมาบนสุด)
         if len(st.session_state.photo_gallery) < 5:
-            # ใช้ Key ใหม่ทุกครั้งเพื่อ Reset กล้องหลังสลับหน้า
-            pack_img = back_camera_input("ถ่ายรูปเพิ่ม", key=f"pack_cam_fin_{st.session_state.cam_counter}")
+            pack_img = back_camera_input("แตะเพื่อถ่ายรูป", key=f"pack_cam_fin_{st.session_state.cam_counter}")
             if pack_img:
                 img_pil = Image.open(pack_img)
                 if img_pil.mode in ("RGBA", "P"): img_pil = img_pil.convert("RGB")
                 buf = io.BytesIO(); img_pil.save(buf, format='JPEG', quality=90)
                 st.session_state.photo_gallery.append(buf.getvalue()); st.session_state.cam_counter += 1; utils.play_sound('scan'); st.rerun()
         
+        # 2. ปุ่ม Action (ย้ายมาไว้ใต้กล้อง)
         col1, col2 = st.columns(2)
         with col1: 
-            if st.button("⬅️ แก้ไข"): st.session_state.picking_phase = 'scan'; st.session_state.photo_gallery = []; st.rerun()
+            if st.button("⬅️ แก้ไข", use_container_width=True): 
+                st.session_state.picking_phase = 'scan'; st.session_state.photo_gallery = []; st.rerun()
         with col2:
             if len(st.session_state.photo_gallery) > 0:
                 if st.button("☁️ Upload", type="primary", use_container_width=True):
@@ -138,3 +128,14 @@ def app():
                                 utils.save_log_to_sheet(st.session_state.current_user_name, st.session_state.order_val, item['Barcode'], item['Product Name'], item.get('Location','-'), '1', st.session_state.current_user_id, uploaded_ids)
                             
                             utils.play_sound('success'); st.success("✅ บันทึกสำเร็จ!"); time.sleep(1.5); st.session_state.need_reset = True; st.rerun()
+
+        # 3. แสดง Gallery รูปที่ถ่ายไปแล้ว (ย้ายมาล่างสุด)
+        if st.session_state.photo_gallery:
+            st.divider()
+            st.write(f"📷 รูปที่ถ่ายแล้ว ({len(st.session_state.photo_gallery)})")
+            cols = st.columns(4)
+            for idx, img in enumerate(st.session_state.photo_gallery):
+                with cols[idx % 4]: 
+                    st.image(img, use_column_width=True)
+                    if st.button("ลบ", key=f"del_{idx}"): 
+                        st.session_state.photo_gallery.pop(idx); st.rerun()
