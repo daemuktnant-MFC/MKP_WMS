@@ -7,8 +7,7 @@ import time
 from streamlit_back_camera_input import back_camera_input
 import utils 
 
-# --- [NEW] CALLBACK FUNCTION ---
-# สร้างฟังก์ชันสำหรับเปลี่ยนหน้า เพื่อให้ทำงานทันทีที่กดปุ่ม
+# --- CALLBACK FUNCTION ---
 def go_to_pack_phase():
     st.session_state.picking_phase = 'pack'
 
@@ -47,37 +46,58 @@ def app():
                 st.dataframe(pd.DataFrame(st.session_state.expected_items)[['Barcode', 'Product Name']], use_container_width=True)
 
                 st.markdown("#### 2. Scan สินค้า")
+                # รับค่าจาก Manual หรือ Camera
                 if not st.session_state.prod_val:
                     col1, col2 = st.columns([3, 1])
                     manual_prod = col1.text_input("พิมพ์ Barcode", key="pack_prod_man").strip()
                     if manual_prod: st.session_state.prod_val = manual_prod; st.rerun()
+                    
                     scan_prod = back_camera_input("สแกนสินค้า", key=f"prod_cam_{st.session_state.cam_counter}")
                     if scan_prod:
                         res_p = decode(Image.open(scan_prod))
                         if res_p: st.session_state.prod_val = res_p[0].data.decode("utf-8"); st.rerun()
+                
+                # ถ้ามีค่า Barcode เข้ามา (จากช่องพิมพ์ หรือ กล้อง)
                 else:
                     scanned = st.session_state.prod_val; found = None
                     for item in st.session_state.expected_items:
                         if str(item.get('Barcode', '')).strip() == scanned: found = item; break
+                    
                     if found:
                         if not any(x['Barcode'] == scanned for x in st.session_state.current_order_items):
                             st.session_state.current_order_items.append(found)
-                            utils.play_sound('success'); st.toast(f"✅ เพิ่ม {found.get('Product Name')}", icon="🛒")
-                        else: st.toast("⚠️ สแกนแล้ว", icon="ℹ️")
-                        st.session_state.prod_val = ""; st.session_state.cam_counter += 1; st.rerun()
+                            utils.play_sound('success')
+                            
+                            # --- [จุดที่แก้ไข] เช็คว่าครบหรือยัง? ---
+                            if len(st.session_state.current_order_items) >= len(st.session_state.expected_items):
+                                # ถ้าครบแล้ว ไปหน้าถ่ายรูปเลยทันที!
+                                st.toast(f"✅ ครบแล้ว! กำลังไปหน้าถ่ายรูป...", icon="📸")
+                                st.session_state.picking_phase = 'pack'
+                                time.sleep(0.5) # หน่วงนิดนึงให้ user รู้ว่าสแกนติดแล้ว
+                                st.rerun()
+                            else:
+                                # ถ้ายังไม่ครบ ให้สแกนต่อ
+                                st.toast(f"✅ เพิ่ม {found.get('Product Name')}", icon="🛒")
+                                st.session_state.prod_val = ""
+                                st.session_state.cam_counter += 1
+                                st.rerun()
+                            # -----------------------------------
+                        else: 
+                            st.toast("⚠️ สแกนแล้ว", icon="ℹ️")
+                            st.session_state.prod_val = ""; st.session_state.cam_counter += 1; st.rerun()
                     else:
                         utils.play_sound('error'); st.error("⛔ สินค้าผิด!"); time.sleep(1); st.session_state.prod_val = ""; st.session_state.cam_counter += 1; st.rerun()
 
             if st.session_state.current_order_items:
                 st.markdown("---")
-                st.markdown(f"### 🛒 แพ็คแล้ว ({len(st.session_state.current_order_items)})")
+                st.markdown(f"### 🛒 แพ็คแล้ว ({len(st.session_state.current_order_items)}/{len(st.session_state.expected_items)})")
                 st.dataframe(pd.DataFrame(st.session_state.current_order_items)[['Barcode', 'Product Name']], use_container_width=True)
                 
-                # --- [FIXED] ปุ่มยืนยันใช้ on_click ---
-                st.button("✅ ยืนยันครบ (ไปถ่ายรูป)", 
-                          type="primary", 
-                          use_container_width=True, 
-                          on_click=go_to_pack_phase) # เรียกใช้ฟังก์ชัน Callback แทน
+                # ปุ่มยังเก็บไว้ เผื่อกรณีอยากกดข้ามเอง แต่ปกติจะไม่ค่อยได้ใช้แล้ว
+                if len(st.session_state.current_order_items) < len(st.session_state.expected_items):
+                    st.warning("⚠️ ยังสแกนไม่ครบ")
+                else:
+                    st.button("✅ ยืนยันครบ (ไปถ่ายรูป)", type="primary", use_container_width=True, on_click=go_to_pack_phase)
 
     # --- Phase 2: PHOTO & UPLOAD ---
     elif st.session_state.picking_phase == 'pack':
@@ -91,21 +111,13 @@ def app():
                 if st.button("ลบ", key=f"del_{idx}"): st.session_state.photo_gallery.pop(idx); st.rerun()
         
         if len(st.session_state.photo_gallery) < 5:
+            # ใช้ Key ใหม่ทุกครั้งเพื่อ Reset กล้องหลังสลับหน้า
             pack_img = back_camera_input("ถ่ายรูปเพิ่ม", key=f"pack_cam_fin_{st.session_state.cam_counter}")
             if pack_img:
                 img_pil = Image.open(pack_img)
-                
-                # --- [FIXED] เพิ่ม 2 บรรทัดนี้เพื่อแปลงโหมดสี ---
-                if img_pil.mode in ("RGBA", "P"): 
-                    img_pil = img_pil.convert("RGB")
-                # ------------------------------------------
-
-                buf = io.BytesIO()
-                img_pil.save(buf, format='JPEG', quality=90)
-                st.session_state.photo_gallery.append(buf.getvalue())
-                st.session_state.cam_counter += 1
-                utils.play_sound('scan')
-                st.rerun()
+                if img_pil.mode in ("RGBA", "P"): img_pil = img_pil.convert("RGB")
+                buf = io.BytesIO(); img_pil.save(buf, format='JPEG', quality=90)
+                st.session_state.photo_gallery.append(buf.getvalue()); st.session_state.cam_counter += 1; utils.play_sound('scan'); st.rerun()
         
         col1, col2 = st.columns(2)
         with col1: 
