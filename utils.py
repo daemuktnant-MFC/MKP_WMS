@@ -22,19 +22,32 @@ USER_SHEET_NAME = 'User'
 
 # --- SOUND HELPER ---
 def play_sound(status='success'):
-    sound_files = {'scan': 'beep.mp3', 'success': 'success.mp3', 'error': 'error.mp3'}
+    # [แก้] กำหนดชื่อ Folder ที่เก็บไฟล์เสียง
+    sound_folder = "sound"
+    
+    # [แก้] เพิ่มชื่อ folder นำหน้าชื่อไฟล์
+    sound_files = {
+        'scan': f'{sound_folder}/beep.mp3',
+        'success': f'{sound_folder}/success.mp3',
+        'error': f'{sound_folder}/error.mp3'
+    }
+    
     backup_urls = {
         'scan': "https://www.myinstants.com/media/sounds/barcode-scanner-beep-sound.mp3",
         'success': "https://www.myinstants.com/media/sounds/success-sound-effect.mp3",
         'error': "https://www.myinstants.com/media/sounds/error_CDOxCNm.mp3"
     }
-    target_file = sound_files.get(status, 'beep.mp3')
+    
+    target_file = sound_files.get(status, f'{sound_folder}/beep.mp3')
+    
     try:
+        # Code เดิมทำงานได้เลย แค่เปลี่ยน path file ด้านบน
         with open(target_file, "rb") as f:
             data = f.read()
             b64 = base64.b64encode(data).decode()
             st.markdown(f"""<audio autoplay><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>""", unsafe_allow_html=True)
     except FileNotFoundError:
+        # ถ้าหาไฟล์ใน folder ไม่เจอ จะไปใช้ link สำรองแทน
         sound_url = backup_urls.get(status, backup_urls['scan'])
         st.markdown(f"""<audio autoplay><source src="{sound_url}" type="audio/mp3"></audio>""", unsafe_allow_html=True)
 
