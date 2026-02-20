@@ -47,11 +47,29 @@ def app():
         valid_list = df_order_data['Tracking'].astype(str).str.upper().tolist() if not df_order_data.empty else []
         exists_local = any(o['id'] == curr for o in st.session_state.rider_scanned_orders)
         
-        if curr not in valid_list: st.error("⛔ ไม่พบ Tracking"); st.session_state.rider_input_reset_key += 1; st.rerun()
-        elif exists_local: st.error("⚠️ สแกนไปแล้ว"); st.session_state.rider_input_reset_key += 1; st.rerun()
+        # --- [แก้ไข] เพิ่มเสียงแจ้งเตือนและหน่วงเวลาในส่วนนี้ ---
+        if curr not in valid_list: 
+            utils.play_sound('error')
+            st.error("⛔ ไม่พบ Tracking")
+            time.sleep(1.5)
+            st.session_state.rider_input_reset_key += 1
+            st.rerun()
+            
+        elif exists_local: 
+            utils.play_sound('error')
+            st.error("⚠️ สแกนซ้ำ! (สแกนไปแล้ว)")
+            time.sleep(1.5)
+            st.session_state.rider_input_reset_key += 1
+            st.rerun()
+            
         else:
             st.session_state.rider_scanned_orders.append({'id': curr})
-            utils.play_sound('scan'); st.success(f"✅ เพิ่ม {curr}"); st.session_state.rider_input_reset_key += 1; st.session_state.cam_counter += 1; st.rerun()
+            utils.play_sound('scan')
+            st.success(f"✅ เพิ่ม {curr}")
+            st.session_state.rider_input_reset_key += 1
+            st.session_state.cam_counter += 1
+            st.rerun()
+        # --------------------------------------------------
 
     # --- ส่วนแสดงรายการและถ่ายรูป (ทำงานเมื่อมี Order ในตะกร้า) ---
     if st.session_state.rider_scanned_orders:
