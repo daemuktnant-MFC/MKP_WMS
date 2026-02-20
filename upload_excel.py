@@ -7,9 +7,7 @@ import time
 # ฟังก์ชันไม้ตาย: ทำความสะอาดข้อมูลก่อนเทียบ
 def clean_key(val):
     if pd.isna(val): return ""
-    # ตัดช่องว่างหน้าหลัง และแปลงเป็นตัวพิมพ์เล็กทั้งหมด
     s = str(val).strip().lower() 
-    # ถ้ามี .0 โผล่มาให้ลบทิ้ง
     if s.endswith('.0'): s = s[:-2]
     return s
 
@@ -17,7 +15,17 @@ def app():
     st.title("📤 อัปโหลดข้อมูล Order (Excel)")
     st.info("ระบบจะเทียบ 'Tesco SKU' จากไฟล์ Excel กับชีต 'SKU' เพื่อดึง Barcode มาไว้ที่คอลัมน์ A")
 
-    uploaded_files = st.file_uploader("เลือกไฟล์ Excel (เลือกพร้อมกันได้หลายไฟล์)", type=['xlsx', 'xls'], accept_multiple_files=True)
+    # --- [เพิ่มใหม่] สร้าง Key ไว้รีเซ็ต File Uploader ---
+    if 'uploader_key' not in st.session_state:
+        st.session_state.uploader_key = 0
+
+    # ผูก Key เข้ากับ File Uploader
+    uploaded_files = st.file_uploader(
+        "เลือกไฟล์ Excel (เลือกพร้อมกันได้หลายไฟล์)", 
+        type=['xlsx', 'xls'], 
+        accept_multiple_files=True,
+        key=f"excel_uploader_{st.session_state.uploader_key}" # <--- จุดสำคัญอยู่ตรงนี้
+    )
 
     if uploaded_files:
         st.markdown("---")
@@ -34,7 +42,7 @@ def app():
                 dfs = []
                 for file in uploaded_files:
                     file.seek(0)
-                    df = pd.read_excel(file, dtype=str) # บังคับอ่านเป็นตัวหนังสือ
+                    df = pd.read_excel(file, dtype=str)
                     dfs.append(df)
                 
                 main_df = pd.concat(dfs, ignore_index=True)
@@ -46,7 +54,6 @@ def app():
                 b_col_sku = None
                 
                 if not df_sku.empty:
-                    # หาคอลัมน์ใน Sheet SKU (หาคำว่า tesco หรือ sku)
                     for c in df_sku.columns:
                         c_clean = str(c).lower().replace(' ', '')
                         if 'tescosku' in c_clean or c_clean == 'sku' or 'tesco' in c_clean: t_col_sku = c
@@ -56,11 +63,9 @@ def app():
                         for _, row in df_sku.iterrows():
                             k = clean_key(row[t_col_sku])
                             v = str(row[b_col_sku]).strip()
-                            if v.endswith('.0'): v = v[:-2] # ลบ .0 ของ Barcode
+                            if v.endswith('.0'): v = v[:-2] 
                             if k: 
                                 sku_dict[k] = v
-                    else:
-                        st.warning(f"⚠️ ในชีต 'SKU' หาคอลัมน์อ้างอิงไม่เจอ (พบแต่คอลัมน์: {list(df_sku.columns)})")
 
                 # 3. หาคอลัมน์ Tesco SKU ใน Excel ที่อัปโหลดมา
                 main_tesco_col = None
@@ -71,20 +76,14 @@ def app():
                         break
                         
                 if main_tesco_col:
-                    # ฟังก์ชันจับคู่
                     def map_barcode(val):
                         k = clean_key(val)
                         if not k: return ""
-                        # ถ้าไม่เจอ จะโชว์ค่าที่มันพยายามค้นหาให้ดูชัดๆ
                         return sku_dict.get(k, f"❌ ไม่พบ (ค้นหา:'{k}')")
                         
                     main_df['Barcode_New'] = main_df[main_tesco_col].apply(map_barcode)
-                    
-                    # Debug: พิมพ์แจ้งเตือนให้เห็นว่าใช้คอลัมน์ไหนเทียบกัน
-                    st.caption(f"🔍 *ระบบใช้คอลัมน์ **'{main_tesco_col}'** (จาก Excel) เทียบกับ **'{t_col_sku}'** (จาก Sheet SKU)*")
-                    
                 else:
-                    st.error(f"❌ ไม่พบคอลัมน์ 'Tesco SKU' ในไฟล์ Excel (พบแต่: {list(main_df.columns)})")
+                    st.error(f"❌ ไม่พบคอลัมน์ 'Tesco SKU' ในไฟล์ Excel")
                     main_df['Barcode_New'] = "ไม่พบคอลัมน์อ้างอิง"
                 
                 # 4. จัดเรียงคอลัมน์
@@ -128,7 +127,11 @@ def app():
                     
                     st.cache_data.clear() 
                     st.success("🎉 อัปโหลดสำเร็จเรียบร้อยแล้ว!")
-                    time.sleep(2)
+                    time.sleep(1.5)
+                    
+                    # --- [เพิ่มใหม่] สั่งอัปเดต Key เพื่อล้างช่องอัปโหลดไฟล์ ---
+                    st.session_state.uploader_key += 1
                     st.rerun()
+                    
                 except Exception as e:
                     st.error(f"❌ เกิดข้อผิดพลาดตอนอัปโหลด: {e}")
