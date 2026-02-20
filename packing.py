@@ -112,10 +112,19 @@ def app():
         with col1: 
             if st.button("⬅️ แก้ไข", use_container_width=True): 
                 st.session_state.picking_phase = 'scan'; st.session_state.photo_gallery = []; st.rerun()
+        
         with col2:
             if len(st.session_state.photo_gallery) > 0:
-                if st.button("☁️ Upload", type="primary", use_container_width=True):
-                    with st.spinner("🚀 Uploading..."):
+                # --- [แก้ไข] ใช้ st.empty() เพื่อสร้างพื้นที่สำหรับซ่อนปุ่ม ---
+                upload_placeholder = st.empty() 
+                
+                # เอาปุ่มไปใส่ไว้ใน upload_placeholder
+                if upload_placeholder.button("☁️ Upload", type="primary", use_container_width=True):
+                    
+                    # สั่งล้างปุ่มทิ้งทันทีที่ถูกกด (ปุ่มจะหายไปจากหน้าจอ)
+                    upload_placeholder.empty() 
+                    
+                    with st.spinner("🚀 Uploading... กรุณารอสักครู่"):
                         srv = utils.authenticate_drive()
                         if srv:
                             fid = utils.get_target_folder_structure(srv, st.session_state.order_val, utils.MAIN_FOLDER_ID)
@@ -127,7 +136,12 @@ def app():
                             for item in st.session_state.current_order_items:
                                 utils.save_log_to_sheet(st.session_state.current_user_name, st.session_state.order_val, item['Barcode'], item['Product Name'], item.get('Location','-'), '1', st.session_state.current_user_id, uploaded_ids)
                             
-                            utils.play_sound('success'); st.success("✅ บันทึกสำเร็จ!"); time.sleep(1.5); st.session_state.need_reset = True; st.rerun()
+                            utils.play_sound('success')
+                            st.success("✅ บันทึกสำเร็จ!")
+                            time.sleep(1.5)
+                            st.session_state.need_reset = True
+                            st.rerun()
+                # ---------------------------------------------------------
 
         # 3. แสดง Gallery รูปที่ถ่ายไปแล้ว (ย้ายมาล่างสุด)
         if st.session_state.photo_gallery:
