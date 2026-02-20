@@ -10,6 +10,7 @@ import utils
 import packing
 import ship_out
 import manage_user
+import upload_excel
 
 # --- SETUP ---
 st.set_page_config(page_title="Smart Picking System", page_icon="📦")
@@ -142,7 +143,6 @@ if not st.session_state.current_user_name:
 else:
     # --- APP NAVIGATION (SIDEBAR) ---
     with st.sidebar:
-        # [แก้] ชี้ไปที่ folder picture
         if os.path.exists("picture/logo.jpg"):
             st.image("picture/logo.jpg", use_column_width=True)
         else:
@@ -152,8 +152,10 @@ else:
         st.write(f"👤 **{st.session_state.current_user_name}**")
         st.caption(f"Role: {st.session_state.current_user_role}")
         
-        opts = ["📦 แผนกแพ็คสินค้า", "🚚 Scan ปิดตู้"]
-        if st.session_state.current_user_role == 'admin': opts.append("👥 จัดการพนักงาน")
+        # --- [แก้] เพิ่มเมนูอัปโหลดข้อมูลลงไป ---
+        opts = ["📦 แผนกแพ็คสินค้า", "🚚 Scan ปิดตู้", "📤 อัปโหลดข้อมูล Order"]
+        if st.session_state.current_user_role == 'admin': 
+            opts.append("👥 จัดการพนักงาน")
         
         mode = st.radio("เลือกเมนู", opts)
         
@@ -165,4 +167,5 @@ else:
     # --- ROUTING ---
     if mode == "📦 แผนกแพ็คสินค้า": packing.app()
     elif mode == "🚚 Scan ปิดตู้": ship_out.app()
+    elif mode == "📤 อัปโหลดข้อมูล Order": upload_excel.app() # <--- เพิ่มบรรทัดนี้
     elif mode == "👥 จัดการพนักงาน": manage_user.app()
