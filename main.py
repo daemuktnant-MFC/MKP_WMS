@@ -34,12 +34,11 @@ st.markdown("""
             color: #666666;
         }
         
-        /* ปรับให้ปุ่มในหน้า Login อยู่แนวเดียวกับ Input */
         div[data-testid="column"] { align-self: flex-end; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- [FIXED] STATE MANAGEMENT ---
+# --- STATE MANAGEMENT ---
 def init_app_state():
     defaults = {
         'picking_phase': 'scan',
@@ -72,22 +71,31 @@ if st.session_state.need_reset:
     st.session_state.need_reset = False
     st.rerun()
 
+# โหลดข้อมูล User มาเตรียมไว้
+df_users = utils.load_sheet_data(utils.USER_SHEET_NAME, utils.ORDER_CHECK_SHEET_ID)
+
+# --- [NEW] AUTO LOGIN (เช็คจาก URL) ---
+if not st.session_state.current_user_name and "uid" in st.query_params:
+    saved_uid = st.query_params["uid"]
+    if not df_users.empty:
+        match = df_users[df_users.iloc[:,0].astype(str).str.lower().str.strip() == str(saved_uid).lower().strip()]
+        if not match.empty:
+            r = match.iloc[0]
+            st.session_state.current_user_name = r[2]
+            st.session_state.current_user_id = str(r[0])
+            st.session_state.current_user_role = r[3] if len(r)>3 else 'staff'
+
 # --- LOGIN FLOW ---
 if not st.session_state.current_user_name:
     
-    # ส่วนแสดง Logo หน้า Login (Optional)
     c_logo, c_title = st.columns([1, 4]) 
     with c_logo:
-        # [แก้] ชี้ไปที่ folder picture
         if os.path.exists("picture/logo.jpg"): 
             st.image("picture/logo.jpg", width=80)
     with c_title:
         st.title("🔐 Login")
          
-    df_users = utils.load_sheet_data(utils.USER_SHEET_NAME, utils.ORDER_CHECK_SHEET_ID)
-    
     if 'temp_user' not in st.session_state:
-        # Step 1: Scan / Input ID
         st.info("กรุณาสแกนหรือพิมพ์รหัสพนักงาน")
         c1, c2 = st.columns([3,1])
         with c1: man = st.text_input("รหัสพนักงาน (ID)", key="login_id_input")
@@ -104,35 +112,29 @@ if not st.session_state.current_user_name:
             else: st.error("❌ ไม่พบรหัสพนักงานนี้")
             
     else:
-        # Step 2: Confirm Name & Password
         u = st.session_state.temp_user
         
-        # --- [DESIGN ใหม่] จัด layout แบบ 2 คอลัมน์ ---
-        
-        # แถวที่ 1: ชื่อพนักงาน + ปุ่ม Back
         c_user, c_back = st.columns([3, 1]) 
         with c_user:
-            # ใช้ st.success แทน st.info เพื่อให้ดูเป็นสถานะยืนยันแล้ว
             st.success(f"👤 **{u['name']}** ({u['role']})") 
         with c_back:
-            # ปุ่ม Back อยู่ท้ายชื่อ
             if st.button("⬅️ Back", use_container_width=True, help="เปลี่ยน user"):
                 del st.session_state.temp_user
                 st.rerun()
 
-        # แถวที่ 2: ช่อง Password + ปุ่ม Login
         c_pass, c_login = st.columns([3, 1])
         with c_pass:
-            # ใส่ label_visibility="collapsed" ถ้าอยากซ่อนคำว่า Password แต่ใส่ไว้ดีกว่าเพื่อความชัดเจน
             pw = st.text_input("Password", type="password", placeholder="กรอกรหัสผ่าน", key="login_pass")
         with c_login:
-            # ใช้ CSS hack ด้านบนช่วยจัดให้ปุ่มตรงกับช่อง input
-            # ปุ่ม Login อยู่ท้ายช่องรหัสผ่าน
             if st.button("🚀 Login", type="primary", use_container_width=True):
                 if pw == u['pass']:
                     st.session_state.current_user_name = u['name']
                     st.session_state.current_user_id = u['id']
                     st.session_state.current_user_role = u['role']
+                    
+                    # --- [NEW] บันทึกรหัสพนักงานลงบน URL ---
+                    st.query_params["uid"] = u['id']
+                    
                     del st.session_state.temp_user
                     st.toast("Welcome!", icon="🎉")
                     time.sleep(1)
@@ -152,7 +154,6 @@ else:
         st.write(f"👤 **{st.session_state.current_user_name}**")
         st.caption(f"Role: {st.session_state.current_user_role}")
         
-        # --- [แก้] เพิ่มเมนูอัปโหลดข้อมูลลงไป ---
         opts = ["📦 แผนกแพ็คสินค้า", "🚚 Scan ปิดตู้", "📤 อัปโหลดข้อมูล Order"]
         if st.session_state.current_user_role == 'admin': 
             opts.append("👥 จัดการพนักงาน")
@@ -162,10 +163,15 @@ else:
         st.divider()
         if st.button("Logout", type="secondary", use_container_width=True): 
             st.session_state.clear()
+            
+            # --- [NEW] ลบข้อมูลจำจาก URL เมื่อกดออกจากระบบ ---
+            if "uid" in st.query_params:
+                del st.query_params["uid"]
+                
             st.rerun()
 
     # --- ROUTING ---
     if mode == "📦 แผนกแพ็คสินค้า": packing.app()
     elif mode == "🚚 Scan ปิดตู้": ship_out.app()
-    elif mode == "📤 อัปโหลดข้อมูล Order": upload_excel.app() # <--- เพิ่มบรรทัดนี้
+    elif mode == "📤 อัปโหลดข้อมูล Order": upload_excel.app()
     elif mode == "👥 จัดการพนักงาน": manage_user.app()
