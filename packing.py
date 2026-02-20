@@ -98,13 +98,9 @@ def app():
         st.success(f"📦 Tracking: **{st.session_state.order_val}**")
         st.markdown("#### 3. 📸 ถ่ายรูปหลักฐาน")
         
-        # 1. แสดงกล้องถ่ายรูป (เปลี่ยนเป็น st.camera_input เพื่อให้มีปุ่มกด)
+        # 1. แสดงกล้องถ่ายรูป (ย้ายมาบนสุด)
         if len(st.session_state.photo_gallery) < 5:
-            
-            # --- [แก้ตรงนี้] ใช้คำสั่งกล้องพื้นฐานแทน ---
-            pack_img = st.camera_input("📸 กล้องถ่ายรูป", key=f"pack_cam_fin_{st.session_state.cam_counter}")
-            # ----------------------------------------
-            
+            pack_img = back_camera_input("แตะเพื่อถ่ายรูป", key=f"pack_cam_fin_{st.session_state.cam_counter}")
             if pack_img:
                 img_pil = Image.open(pack_img)
                 if img_pil.mode in ("RGBA", "P"): img_pil = img_pil.convert("RGB")
