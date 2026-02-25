@@ -93,21 +93,47 @@ def app():
                 else:
                     st.button("✅ ยืนยันครบ (ไปถ่ายรูป)", type="primary", use_container_width=True, on_click=go_to_pack_phase)
 
-    # --- Phase 2: PHOTO & UPLOAD (แก้ไขตำแหน่ง) ---
+    # --- Phase 2: PHOTO & UPLOAD ---
     elif st.session_state.picking_phase == 'pack':
         st.success(f"📦 Tracking: **{st.session_state.order_val}**")
         st.markdown("#### 3. 📸 ถ่ายรูปหลักฐาน")
         
-        # 1. แสดงกล้องถ่ายรูป (ย้ายมาบนสุด)
-        if len(st.session_state.photo_gallery) < 5:
+        # 1. แสดงกล้องถ่ายรูป และ ปุ่มอัปโหลดรูป
+        remaining_slots = 5 - len(st.session_state.photo_gallery)
+        if remaining_slots > 0:
+            
+            # 1.1 กล้องถ่ายรูป (แตะเพื่อถ่าย)
             pack_img = back_camera_input("แตะเพื่อถ่ายรูป", key=f"pack_cam_fin_{st.session_state.cam_counter}")
             if pack_img:
                 img_pil = Image.open(pack_img)
                 if img_pil.mode in ("RGBA", "P"): img_pil = img_pil.convert("RGB")
                 buf = io.BytesIO(); img_pil.save(buf, format='JPEG', quality=90)
-                st.session_state.photo_gallery.append(buf.getvalue()); st.session_state.cam_counter += 1; utils.play_sound('scan'); st.rerun()
+                st.session_state.photo_gallery.append(buf.getvalue())
+                st.session_state.cam_counter += 1
+                utils.play_sound('scan')
+                st.rerun()
+
+            # 1.2 ปุ่มอัปโหลดรูปภาพจากเครื่อง (เลือกได้หลายรูป)
+            uploaded_imgs = st.file_uploader(f"หรือ อัปโหลดจากเครื่อง (เลือกได้อีก {remaining_slots} รูป)", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, key=f"pack_upload_{st.session_state.cam_counter}")
+            
+            if uploaded_imgs:
+                added_count = 0
+                for up_img in uploaded_imgs:
+                    # ป้องกันไม่ให้อัปโหลดเกิน 5 รูป
+                    if len(st.session_state.photo_gallery) < 5:
+                        img_pil = Image.open(up_img)
+                        if img_pil.mode in ("RGBA", "P"): img_pil = img_pil.convert("RGB")
+                        buf = io.BytesIO(); img_pil.save(buf, format='JPEG', quality=90)
+                        st.session_state.photo_gallery.append(buf.getvalue())
+                        added_count += 1
+                
+                # ถ้ารูปถูกเพิ่มเข้าไป ให้รีเฟรชหน้าจอเพื่อโชว์รูป
+                if added_count > 0:
+                    st.session_state.cam_counter += 1
+                    utils.play_sound('scan')
+                    st.rerun()
         
-        # 2. ปุ่ม Action (ย้ายมาไว้ใต้กล้อง)
+        # 2. ปุ่ม Action (แก้ไข / Upload)
         col1, col2 = st.columns(2)
         with col1: 
             if st.button("⬅️ แก้ไข", use_container_width=True): 
@@ -115,14 +141,10 @@ def app():
         
         with col2:
             if len(st.session_state.photo_gallery) > 0:
-                # --- [แก้ไข] ใช้ st.empty() เพื่อสร้างพื้นที่สำหรับซ่อนปุ่ม ---
                 upload_placeholder = st.empty() 
                 
-                # เอาปุ่มไปใส่ไว้ใน upload_placeholder
                 if upload_placeholder.button("☁️ Upload", type="primary", use_container_width=True):
-                    
-                    # สั่งล้างปุ่มทิ้งทันทีที่ถูกกด (ปุ่มจะหายไปจากหน้าจอ)
-                    upload_placeholder.empty() 
+                    upload_placeholder.empty() # ซ่อนปุ่มระหว่างโหลด
                     
                     with st.spinner("🚀 Uploading... กรุณารอสักครู่"):
                         srv = utils.authenticate_drive()
@@ -141,12 +163,11 @@ def app():
                             time.sleep(1.5)
                             st.session_state.need_reset = True
                             st.rerun()
-                # ---------------------------------------------------------
 
-        # 3. แสดง Gallery รูปที่ถ่ายไปแล้ว (ย้ายมาล่างสุด)
+        # 3. แสดง Gallery รูปที่เตรียม Upload
         if st.session_state.photo_gallery:
             st.divider()
-            st.write(f"📷 รูปที่ถ่ายแล้ว ({len(st.session_state.photo_gallery)})")
+            st.write(f"📷 รูปที่พร้อม Upload ({len(st.session_state.photo_gallery)}/5)")
             cols = st.columns(4)
             for idx, img in enumerate(st.session_state.photo_gallery):
                 with cols[idx % 4]: 
